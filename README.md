@@ -2,7 +2,7 @@
 You can name anonymous Future from async fn without dyn or Box!
 
 # PLEASE READ THIS
-THIS PROJECT NOT YET TESTED! DO NOT USE ON PRODUCTION! 
+THIS PROJECT NOT YET TESTED! DON'T USE THIS IN PRODUCTION CODE!
 
 ## What is the problem of `async fn` and its returning `Future`?
 The return type of `async fn` is anonymous. means, it is really hard to move around `Future` of `async fn` 
