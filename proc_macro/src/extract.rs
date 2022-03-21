@@ -12,10 +12,6 @@ pub(crate) fn extract_return_ty(fn_item: &ItemFn) -> Type {
     .unwrap()
 }
 
-pub(crate) fn fn_args(fn_item: &ItemFn) -> Punctuated<FnArg, Comma> {
-    fn_item.sig.inputs.clone()
-}
-
 pub(crate) fn fn_args_ty(fn_item: &ItemFn) -> Punctuated<Type, Comma> {
     fn_item.sig.inputs.iter().map(|fn_arg| {
         match fn_arg {
