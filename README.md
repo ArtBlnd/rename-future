@@ -1,6 +1,9 @@
 # rename-future
 You can name anonymous Future from async fn without dyn or Box!
 
+# PLEASE READ THIS
+THIS PROJECT NOT YET TESTED! DO NOT USE ON PRODUCTION! 
+
 ## What is the problem of `async fn` and its returning `Future`?
 The return type of `async fn` is anonymous. means, it is really hard to move around `Future` of `async fn` 
 unless `type_alias_impl_trait` stabilizes. for example, most `Service` design requires `Future` as associated type.
