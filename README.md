@@ -25,7 +25,7 @@ impl Service<Request> for AsyncFnService {
 }
 ```
 
-To solve this problem, we need trait boxing. which means makes extra runtime costs. and bad, long, ugly type signature something like this.  
+To solve this problem, we need trait boxing. which means make extra runtime costs. and bad, long, ugly type signature something like this.  
 This makes boxing itself is more expensive then function itself.
 ```rust
 impl Service<Request> for AsyncFnService {
@@ -75,7 +75,7 @@ async fn add_10<'a>(v: &'a usize) -> usize {
 }
 ```
 
-Lifetime will be always required because new defined `Future` will always require explicit lifetime.  
+Lifetime will be always required because new defined `Future` will always require an explicit lifetime.  
 The signature of FooAsyncFnFuture will look like this.
 ```rust
 struct FooAsyncFnFuture<'a> {
@@ -83,9 +83,9 @@ struct FooAsyncFnFuture<'a> {
 }
 ```
 
-## How does it works?
+## How does it work?
 We create exact same size and aligned named struct on macro and transmute it.
-in the end, when `poll` is called on new named future. `Pin<&mut Self>` is transmutted into original function's return `Pin<&mut {Some_Anon_Original_Future}>`. and original `poll` will be called.
+at the end, when `poll` is called on new named future. `Pin<&mut Self>` is transmutted into original function's return `Pin<&mut {Some_Anon_Original_Future}>`. and original `poll` will be called.
 everything will be inlined so it will just work like holding original `Future`. without any costs.
 
 this is original function
@@ -148,7 +148,7 @@ fn async_fn() -> AsyncFnFuture {
 }
 ```
 
-Everything is safe until those condition.
+Everything is safe until those conditions.
 1. New `Future` has same size, alignment, lifetime, trait as original `Future`
 2. New `Future` is always `!Unpin`
 3. New `Future` should be transmutted into exact original `Future` that it was when its polled.
@@ -156,4 +156,4 @@ Everything is safe until those condition.
 
 ## Limitations
 Currently, `rename-future` does not support `async fn` with generic types. because current rust compiler cannot eval size or align of type when it has generic types.
-you can use it by enabling `generic_const_exprs` nightly feature if you want. but this is not supported on stable version of rust. Also this does not support `impl Trait` return type. supporting `impl Trait` return type means `type_alias_impl_trait` is stablized! which makes this crate useless.
+you can use it by enabling `generic_const_exprs` nightly feature if you want. but this is not supported on stable version of rust. Also, `rename-future` does not support `impl Trait` return type. supporting `impl Trait` return type means `type_alias_impl_trait` is stabilized! which makes this crate useless.
