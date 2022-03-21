@@ -6,7 +6,7 @@ The return type of `async fn` is anonymous. means, it is really hard to move aro
 unless `type_alias_impl_trait` stabilizes. for example, most `Service` design requires `Future` as associated type.
 
 Simple example with `tower::Service`.
-```
+```rust
 impl Service<Request> for AsyncFnService {
     type Response = usize;
     type Error = ();
@@ -24,7 +24,7 @@ impl Service<Request> for AsyncFnService {
 
 To solve this problem, we need trait boxing. which means makes extra runtime costs. and bad, long, ugly type signature something like this.  
 This makes boxing itself is more expensive then function itself.
-```
+```rust
 impl Service<Request> for AsyncFnService {
     type Response = usize;
     type Error = ();
@@ -43,7 +43,7 @@ impl Service<Request> for AsyncFnService {
 ## Using rename-future
 With rename-future, you can simply define a new name for returning future! without any runtime costs.  
 Only you have to do is define a new `async fn` and add attribute.
-```
+```rust
 impl Service<Request> for AsyncFnService {
     type Response = ();
     type Error = ();
@@ -65,7 +65,7 @@ async fn foo() -> usize {
 ```
 
 You also can pass references via adding lifetimes. 
-```
+```rust
 #[rename_future(FooAsyncFnFuture)]
 async fn add_10<'a>(v: &'a usize) -> usize {
     *v + 10
@@ -74,7 +74,7 @@ async fn add_10<'a>(v: &'a usize) -> usize {
 
 Lifetime will be always required because new defined `Future` will always require explicit lifetime.  
 The signature of FooAsyncFnFuture will look like this.
-```
+```rust
 struct FooAsyncFnFuture<'a> {
     /* private fields */
 }
@@ -86,7 +86,7 @@ in the end, when `poll` is called on new named future. `Pin<&mut Self>` is trans
 everything will be inlined so it will just work like holding original `Future`. without any costs.
 
 this is original function
-```
+```rust
 #[rename_future(AsyncFnFuture)]
 async fn async_fn() -> usize {
     10
@@ -94,7 +94,7 @@ async fn async_fn() -> usize {
 ```
 
 and this is how its look like after macro expansion!
-```
+```rust
 pub const fn __internal_async_fn_sof<F, Fut>(_: &F) -> usize
 where
     F: Fn() -> Fut,
