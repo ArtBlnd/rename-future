@@ -5,7 +5,7 @@ You can name anonymous Future from async fn without dyn or Box!
 The return type of `async fn` is anonymous. means, it is really hard to move around `Future` of `async fn` 
 unless `type_alias_impl_trait` stabilizes. for example, most `Service` design requires `Future` as associated type.
 
-example with `tower::Service`.
+Simple example with `tower::Service`.
 ```
 impl Service<Request> for AsyncFnService {
     type Response = usize;
@@ -22,8 +22,8 @@ impl Service<Request> for AsyncFnService {
 }
 ```
 
-To solve this problem, we need trait boxing. which means makes extra runtiem costs. and bad, long, ugly type signature something like this.
-this makes boxing itself is more expensive then function itself.
+To solve this problem, we need trait boxing. which means makes extra runtime costs. and bad, long, ugly type signature something like this.  
+This makes boxing itself is more expensive then function itself.
 ```
 impl Service<Request> for AsyncFnService {
     type Response = usize;
@@ -41,7 +41,8 @@ impl Service<Request> for AsyncFnService {
 ```
 
 ## Using rename-future
-With rename-future, you can simply define a new name for returning future! without any runtime costs.
+With rename-future, you can simply define a new name for returning future! without any runtime costs.  
+Only you have to do is define a new `async fn` and add attribute.
 ```
 impl Service<Request> for AsyncFnService {
     type Response = ();
@@ -63,11 +64,19 @@ async fn foo() -> usize {
 }
 ```
 
-You also can pass references via adding lifetimes
+You also can pass references via adding lifetimes. 
 ```
 #[rename_future(FooAsyncFnFuture)]
 async fn add_10<'a>(v: &'a usize) -> usize {
     *v + 10
+}
+```
+
+Lifetime will be always required because new defined `Future` will always require explicit lifetime.  
+The signature of FooAsyncFnFuture will look like this.
+```
+struct FooAsyncFnFuture<'a> {
+    /* private fields */
 }
 ```
 
