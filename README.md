@@ -83,6 +83,15 @@ struct FooAsyncFnFuture<'a> {
 }
 ```
 
+Currently, we have no way to eval Send trait check into const value because current rust compiler does not support generic specialization
+So `rename-future` will require Send for return `Future` of `async fn` unless using a !Send marker
+```rust
+#[rename_future(FooAsyncFnFuture(!Send))]
+async fn foo() -> usize {
+    10
+}
+```
+
 ## How does it work?
 We create exact same size and aligned named struct on macro and transmute it.
 at the end, when `poll` is called on new named future. `Pin<&mut Self>` is transmutted into original function's return `Pin<&mut {Some_Anon_Original_Future}>`. and original `poll` will be called.
