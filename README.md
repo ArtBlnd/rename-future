@@ -83,8 +83,8 @@ struct FooAsyncFnFuture<'a> {
 }
 ```
 
-Currently, we have no way to eval Send trait check into const value because current rust compiler does not support generic specialization
-So `rename-future` will require Send for return `Future` of `async fn` unless using a `!Send` marker
+Currently, we have no way to eval Send trait check into const value because current rust compiler does not support generic specialization.
+So `rename-future` will require `Send` for return `Future` of `async fn` unless using a `!Send` marker on attribute.
 ```rust
 #[rename_future(FooAsyncFnFuture(!Send))]
 async fn foo() -> usize {
