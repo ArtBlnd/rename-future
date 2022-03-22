@@ -7,7 +7,7 @@ use quote::{quote};
 use syn::punctuated::Punctuated;
 use syn::{
     parse_macro_input, Field, Fields, FieldsUnnamed, Ident, ItemFn, ItemStruct,
-    ReturnType, Type, Visibility, ItemImpl, ImplItem, GenericParam, TypeTuple
+    ReturnType, Type, Visibility, ItemImpl, ImplItem, GenericParam, TypeTuple, VisPublic
 };
 use syn::token::Comma;
 
@@ -23,6 +23,19 @@ pub fn rename_future(args: TokenStream, input: TokenStream) -> TokenStream {
             .to_string(),
     )
     .unwrap();
+
+    // check it has !Send marker
+    let is_unsend = {
+        if let Some(marker) = args.next() {
+            if marker.to_string() == "(! Send)" {
+                true
+            } else { 
+                false
+            }
+        } else {
+            false
+        }
+    };
 
     let fn_item = parse_macro_input!(input as ItemFn);
     if !checks::is_async_fn(&fn_item) {
@@ -59,11 +72,18 @@ pub fn rename_future(args: TokenStream, input: TokenStream) -> TokenStream {
             elems: {
                 let mut elems = Punctuated::new();
                 elems.push(Type::Verbatim(syn::parse_quote!{
-                    [u8; #sof_ident::<_, _, #fn_generics_ty>(&#ident_org)]
+                    [std::mem::MaybeUninit<u8>; #sof_ident::<_, _, #fn_generics_ty>(&#ident_org)]
                 }));
                 elems.push(Type::Verbatim(syn::parse_quote!{
                     rename_future::Align<{#aof_ident::<_, _, #fn_generics_ty>(&#ident_org)}>
                 }));
+
+                // We need to add unsend marker if !Send preset.
+                if is_unsend {
+                    elems.push(Type::Verbatim(syn::parse_quote!{
+                        rename_future::PhantomUnsend
+                    }))
+                }
 
                 elems
             } 
@@ -110,7 +130,7 @@ pub fn rename_future(args: TokenStream, input: TokenStream) -> TokenStream {
             sig,
             block: {
                 // Create function body.
-                let impl_def = create_future_impl_def(ty_future, &ident_org, &fn_item);
+                let impl_def = create_future_impl_def(ty_future, &ident_org, &fn_item, is_unsend);
                 let fn_pat = extract::fn_arg_pat(&fn_item);
 
                 Box::new(syn::parse_quote!({
@@ -180,7 +200,9 @@ fn create_future_struct_def(
 
     ItemStruct {
         attrs: Vec::new(),
-        vis: Visibility::Inherited,
+        vis: Visibility::Public(VisPublic {
+            pub_token: Default::default(),
+        }),
         struct_token: Default::default(),
         ident: ident.clone(),
         generics: fn_generics,
@@ -189,7 +211,7 @@ fn create_future_struct_def(
     }
 }
 
-fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn) -> ItemImpl {
+fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn, is_unsend: bool) -> ItemImpl {
     let fn_arg_ty = extract::fn_args_ty(fn_item);
     let fn_generics = extract::fn_generics(fn_item);
     let fn_ret = extract::extract_return_ty(&fn_item);
@@ -226,6 +248,12 @@ fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn) -> 
                 syn::parse_quote!(#fn_generics_lt, )
             };
 
+            let send_token: TokenStream2 = if is_unsend {
+                syn::parse_quote!()
+            } else {
+                syn::parse_quote!(+ Send)
+            };
+
             let mut items = Vec::new();
             items.push(syn::parse_quote!{
                 type Output = #fn_ret;  
@@ -239,7 +267,7 @@ fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn) -> 
                     ) -> std::task::Poll<__F::Output>
                     where
                         __T: Fn(#fn_arg_ty) -> __Q,
-                        __Q: std::future::Future<Output = __F::Output>,
+                        __Q: std::future::Future<Output = __F::Output> #send_token,
                         __F: std::future::Future,
                     {
                         let fut: std::pin::Pin<&mut __Q> = unsafe { std::mem::transmute(fut) };
