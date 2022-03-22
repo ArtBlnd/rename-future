@@ -52,6 +52,7 @@ pub fn rename_future(args: TokenStream, input: TokenStream) -> TokenStream {
 
     let def_size_of_fut = crate_size_of_fut_def(&ident_org, &fn_item);
     let def_align_of_fut = crate_align_of_fut_def(&ident_org, &fn_item);
+    
 
     // create stmt that defines new future.
     let def_future = {
@@ -130,11 +131,13 @@ pub fn rename_future(args: TokenStream, input: TokenStream) -> TokenStream {
             sig,
             block: {
                 // Create function body.
-                let impl_def = create_future_impl_def(ty_future, &ident_org, &fn_item, is_unsend);
+                let future_impl_def = create_future_impl_def(&ty_future, &ident_org, &fn_item, is_unsend);
+                let drop_impl_def = create_drop_impl_def(&ty_future, &ident_org, &fn_item);
                 let fn_pat = extract::fn_arg_pat(&fn_item);
 
                 Box::new(syn::parse_quote!({
-                    #impl_def
+                    #future_impl_def
+                    #drop_impl_def
 
                     unsafe { std::mem::transmute(#ident_org(#fn_pat)) }
                 }))
@@ -211,7 +214,7 @@ fn create_future_struct_def(
     }
 }
 
-fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn, is_unsend: bool) -> ItemImpl {
+fn create_future_impl_def(ty_fut: &Type, ident_org: &Ident, fn_item: &ItemFn, is_unsend: bool) -> ItemImpl {
     let fn_arg_ty = extract::fn_args_ty(fn_item);
     let fn_generics = extract::fn_generics(fn_item);
     let fn_ret = extract::extract_return_ty(&fn_item);
@@ -290,6 +293,72 @@ fn create_future_impl_def(ty_fut: Type, ident_org: &Ident, fn_item: &ItemFn, is_
         },
     }
 }
+
+
+fn create_drop_impl_def(ty_fut: &Type, ident_org: &Ident, fn_item: &ItemFn) -> ItemImpl {
+    let fn_generics = extract::fn_generics(fn_item);
+
+    ItemImpl {
+        attrs: Vec::new(),
+        defaultness: None,
+        unsafety: None,
+        impl_token: Default::default(),
+        generics: fn_generics.clone(),
+        trait_: Some((None, syn::parse_quote!(Drop), Default::default())),
+        self_ty: Box::new(syn::parse_quote!(#ty_fut)),
+        brace_token: Default::default(),
+        items: {
+            let mut items = Vec::new();
+            items.push(ImplItem::Method({
+                let fn_arg_ty = extract::fn_args_ty(fn_item);
+                let fn_generics_ty: Punctuated<GenericParam, Comma> = fn_generics.params.iter().filter(|v| {
+                    if let GenericParam::Lifetime(_) = v {
+                        false
+                    } else {
+                        true
+                    }
+                }).cloned().collect();
+                let fn_generics_lt: Punctuated<GenericParam, Comma> = fn_generics.params.iter().filter(|v| {
+                    if let GenericParam::Lifetime(_) = v {
+                        true
+                    } else {
+                        false
+                    }
+                }).cloned().collect();
+
+                let lifetime_token: TokenStream2 = if fn_generics_lt.is_empty() {
+                    syn::parse_quote!()
+                } else {
+                    syn::parse_quote!(#fn_generics_lt, )
+                };
+
+                syn::parse_quote!{
+                    fn drop(&mut self) {
+                        fn call_drop<#lifetime_token __T, __Q, __F, #fn_generics_ty>(
+                            _: &__T, 
+                            fut: &mut __F
+                        )
+                        where
+                            __T: Fn(#fn_arg_ty) -> __Q,
+                        {
+                            let fut: &mut __Q = unsafe { std::mem::transmute(fut) };
+                            if std::mem::needs_drop::<__Q>() {
+                                unsafe {
+                                    std::ptr::drop_in_place(fut);
+                                }
+                            }
+                        }
+            
+                        call_drop::<_, _, _>(&#ident_org, self)
+                    }
+                }
+            }));
+
+            items
+        },
+    }
+}
+
 
 fn crate_size_of_fut_def(ident_org: &Ident, fn_item: &ItemFn) -> ItemFn {
     let ident: Ident = quote::format_ident!("{ident_org}_sof");
