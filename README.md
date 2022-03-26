@@ -157,7 +157,7 @@ fn async_fn() -> AsyncFnFuture {
 }
 ```
 
-Everything is safe until those conditions.
+Everything is safe under those conditions.
 1. New `Future` has same size, alignment, lifetime, trait as original `Future`
 2. New `Future` is always `!Unpin`
 3. New `Future` should be transmutted into exact original `Future` that it was when its polled.
