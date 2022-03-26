@@ -203,9 +203,7 @@ fn create_future_struct_def(
 
     ItemStruct {
         attrs: Vec::new(),
-        vis: Visibility::Public(VisPublic {
-            pub_token: Default::default(),
-        }),
+        vis: fn_item.vis.clone(),
         struct_token: Default::default(),
         ident: ident.clone(),
         generics: fn_generics,
